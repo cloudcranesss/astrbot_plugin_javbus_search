@@ -1,3 +1,5 @@
+import random
+
 import requests
 from typing import Optional, List, Dict, Any
 
@@ -150,7 +152,9 @@ class JavBusAPI:
         # 先根据演员名称获取影片列表
         star_id = ""
         movie_lists = self.search_movies(star_name)
-        movie_id = movie_lists["movies"][0]['id']
+        # 随机获取影片ID
+        num = random.randint(0, len(movie_lists["movies"]) - 1)
+        movie_id = movie_lists["movies"][num]["id"]
 
         # 根据影片ID获取影片详情
         movie_details = self.get_movie_detail(movie_id)

@@ -1,5 +1,5 @@
 import re
-from typing import AsyncGenerator, Any, List, Optional
+from typing import AsyncGenerator, Any, List
 from astrbot.core.message.message_event_result import MessageEventResult
 from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Context, Star, register
@@ -50,12 +50,13 @@ class JavBusSerach(Star):
 
     # 将 www.javbus.com 替换为 self.javbus_image_proxy
     async def proxy_image(self, image_url: str):
-        pattern = r"^https?://www\.javbus\.com"
-        return re.sub(pattern, self.javbus_image_proxy, image_url)
+        image_url = image_url.replace("https://www.javbus.com", self.javbus_image_proxy)
+        return image_url
 
 
+    # 修复：添加 context 参数
     @filter.regex(r"^搜关键词(.+)", flags=re.IGNORECASE, priority=1)
-    async def search_movies(self, event: AstrMessageEvent) -> AsyncGenerator[MessageEventResult, Any]:
+    async def search_movies(self, event: AstrMessageEvent, context: Context) -> AsyncGenerator[MessageEventResult, Any]:
         messages = event.get_messages()
         result1 = str(messages[0])
         result2 = re.findall(r"text='(.*?)'", result1)[0]
@@ -102,8 +103,10 @@ class JavBusSerach(Star):
         async for msg in self.send_reply(event, movies_info):
             yield msg
 
+
+    # 修复：添加 context 参数
     @filter.regex(r"^搜演员(.+)")
-    async def search_star(self, event: AstrMessageEvent) -> AsyncGenerator[MessageEventResult, Any]:
+    async def search_star(self, event: AstrMessageEvent, context: Context) -> AsyncGenerator[MessageEventResult, Any]:
         messages = event.get_messages()
         result1 = str(messages[0])
         result2 = re.findall(r"text='(.*?)'", result1)[0]
@@ -142,8 +145,9 @@ class JavBusSerach(Star):
         async for msg in self.send_reply(event, star_info):
             yield msg
 
+    # 修复：添加 context 参数
     @filter.regex(r"^搜磁力([a-zA-Z0-9-]+)")
-    async def search_magnet(self, event: AstrMessageEvent) -> AsyncGenerator[MessageEventResult, Any]:
+    async def search_magnet(self, event: AstrMessageEvent, context: Context) -> AsyncGenerator[MessageEventResult, Any]:
         messages = event.get_messages()
         result1 = str(messages[0])
         result2 = re.findall(r"text='(.*?)'", result1)[0]
