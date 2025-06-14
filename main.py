@@ -1,6 +1,6 @@
 import random
 import re
-from typing import AsyncGenerator, Any, List, Optional, Dict
+from typing import AsyncGenerator, Any, List, Optional, Dict, Coroutine
 import aiohttp
 from astrbot.core.message.message_event_result import MessageEventResult
 from astrbot.api.event import filter, AstrMessageEvent
@@ -119,8 +119,8 @@ class JavBusSerach(Star):
 
         try:
             logger.info(f"开始调用演员搜索API: {keyword}")
-            translated_keyword = await self.trans.translate(keyword)  # 添加await
-            data = await self.api.get_star_by_name(translated_keyword)  # 添加await
+            translated_keyword = await self.trans.translate(keyword)
+            data = await self.api.get_star_by_name(translated_keyword)
             logger.info(f"演员搜索结果: {data}")
         except Exception as e:
             logger.error(f"演员搜索失败: {str(e)}", exc_info=True)
@@ -324,7 +324,7 @@ class JavBusAPI:
             uc: str,
             sort_by: str = "size",
             sort_order: str = "desc"
-    ) -> List[Dict[str, Any]]:
+    ) -> dict:
         params = {
             'gid': gid,
             'uc': uc,
