@@ -1,137 +1,228 @@
-import os
 import re
-import sys
-from typing import AsyncGenerator, Generator
+from typing import AsyncGenerator, Any, List, Optional
 from astrbot.core.message.message_event_result import MessageEventResult
 from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Context, Star, register
 from astrbot.api import logger, AstrBotConfig
 
-# 确保模块搜索路径正确
-current_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(current_dir)
-
 from utils.send_forward_message import forward_message_by_qq
-from utils.javbus_api import *
+from utils.javbus_api import JavBusAPI
+import asyncio
 
-@register("JavBus Serach", "cloudcranesss", "一个基于JavBus API的搜索服务", "v1.0.0", "https://github.com/cloudcraness/astrbot_plugin_javbus_serach")
+
+@register("JavBus Serach", "cloudcranesss", "一个基于JavBus API的搜索服务", "v1.0.0",
+          "https://github.com/cloudcraness/astrbot_plugin_javbus_serach")
 class JavBusSerach(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
         self.config = config
         self.javbus_api_url = config.get("javbus_api_url", "")
         self.forward_url = config.get("forward_url", "")
+        logger.info(
+            f"初始化JavBus搜索插件，API地址: {self.javbus_api_url}, 转发地址配置: {'已配置' if self.forward_url else '未配置'}")
         self.api = JavBusAPI(self.javbus_api_url)
 
-    def reply(self, event: AstrMessageEvent, content: List[str], screenshots: Optional[List[str]] = None) -> Generator[
-        MessageEventResult, Any, None]:
+    async def send_reply(
+            self,
+            event: AstrMessageEvent,
+            content: List[str]
+    ) -> AsyncGenerator[MessageEventResult, Any]:
+        """统一消息发送方法"""
+        logger.debug(f"准备发送回复，内容长度: {len(content)}")
         if self.forward_url:
-            forward_message_by_qq(self.forward_url, event.get_sender_id(), event.get_group_id(), content, screenshots)
+            logger.info(f"使用转发服务发送消息，接收方: {event.get_group_id() or '私聊'}")
+            # 异步执行同步IO操作
+            await asyncio.to_thread(
+                forward_message_by_qq,
+                self.forward_url,
+                event.get_sender_id(),
+                event.get_group_id(),
+                content,
+                []
+            )
+            logger.debug("转发消息请求已提交")
         else:
+            logger.debug("使用普通消息回复")
             for message in content:
                 yield event.plain_result(message)
+        logger.info(f"消息发送完成，共 {len(content)} 条内容")
 
-    # 通过关键词搜索影片，一般是番号，以搜+番号的格式
     @filter.regex(r"^搜关键词(.+)", flags=re.IGNORECASE, priority=1)
-    async def search_movies(self, event: AstrMessageEvent):
-        message  = event.get_messages()
-        if message:
-            keyword = message[0]
-            # 过滤 搜 这个字
-            keyword = keyword.replace("搜关键词", "")
-            logger.info(f"用户 {event.get_sender_id()} 触发了 search_movies 命令，关键词为 {keyword}")
+    async def search_movies(self, event: AstrMessageEvent) -> AsyncGenerator[MessageEventResult, Any]:
+        messages = event.get_messages()
+        result1 = str(messages[0])
+        result2 = re.findall(r"text='(.*?)'", result1)[0]
+        keyword = result2.split("搜关键词")[1]
+        if not keyword:
+            logger.warning("搜索关键词为空")
+            yield event.plain_result("请输入搜索关键词")
+            return
+
+        logger.info(f"用户 {event.get_sender_id()} 在群组 {event.get_group_id()} 搜索影片: {keyword}")
+
+        try:
+            logger.debug(f"开始调用搜索API，关键词: {keyword}")
             datas = self.api.search_movies(keyword=keyword)
-            movies_info = []
-            for data in datas["movies"]:
-                movies_info.append(f"番号: {data['id']}\r"
-                                   f"名称: {data['title'][20:]}\r"
-                                   f"日期: {data['date']}\r"
-                                   f"标签: {data['tags']}\r"
-                                   f"[CQ:image,file={data['img']}]\n")
+            logger.info(f"搜索完成，找到 {len(datas.get('movies', []))} 个结果")
+        except Exception as e:
+            logger.error(f"搜索失败: {str(e)}", exc_info=True)
+            yield event.plain_result("搜索服务暂时不可用")
+            return
 
-            self.reply(event, movies_info)
-            self.api.close()
-            yield event.plain_result("搜索完成")
-            yield event.plain_result(f"共找到 {len(datas['movies'])} 个结果")
+        if not datas.get("movies"):
+            logger.info("未找到匹配的影片")
+            yield event.plain_result("没有找到相关影片")
+            return
 
-    # 搜演员，人名
+        movies_info = []
+        for idx, data in enumerate(datas["movies"]):
+            logger.debug(f"处理第 {idx + 1}/{len(datas['movies'])} 个结果: {data.get('id')}")
+            title = data['title'][:20] + "..." if len(data['title']) > 20 else data['title']
+            movies_info.append(
+                f"番号: {data['id']}\n"
+                f"标题: {title}\n"
+                f"日期: {data['date']}\n"
+                f"标签: {', '.join(data['tags'])}\n"
+                f"[CQ:image,file={data['img']}]\n"
+            )
+
+        # 添加统计信息
+        movies_info.append(f"找到 {len(datas['movies'])} 个结果")
+        logger.info(f"准备返回 {len(movies_info)} 条消息")
+
+        async for msg in self.send_reply(event, movies_info):
+            yield msg
+
     @filter.regex(r"^搜演员(.+)")
     async def search_star(self, event: AstrMessageEvent) -> AsyncGenerator[MessageEventResult, Any]:
-        logger.info("开始搜索演员")
         messages = event.get_messages()
-        if len(messages) < 4:
+        result1 = str(messages[0])
+        result2 = re.findall(r"text='(.*?)'", result1)[0]
+        keyword = result2.split("搜演员")[1]
+        if not keyword:
+            logger.warning("演员搜索关键词为空")
             yield event.plain_result("请输入演员名称")
             return
-        keyword = messages[0]
-        keyword = keyword.replace("搜演员", "")
-        data = self.api.get_star_by_name(keyword)
-        star_info = []
-        if data:
-            star_info.append(f"姓名: {data['name']}\r"
-                             f"生日: {data['birthday']}\r"
-                             f"年龄: {data['age']}\r"
-                             f"身高: {data['height']}\r"
-                             f"三维: {data['bust']} {data['waistline']} {data['hipline']}\r"
-                             f"[CQ:image,file={data['avatar']}]")
-            self.reply(event, star_info)
-        else:
-            yield event.plain_result("未找到该演员")
 
-    # 搜影片磁力，获取磁力链接，必须是番号
-    @filter.regex(r"^搜磁力[a-zA-Z0-9]+")
-    async def search_magnet(self, event: AstrMessageEvent):
-        logger.info("开始搜索磁力")
+        logger.info(f"用户 {event.get_sender_id()} 在群组 {event.get_group_id()} 搜索演员: {keyword}")
+
+        try:
+            logger.debug(f"开始调用演员搜索API: {keyword}")
+            data = self.api.get_star_by_name(keyword)
+            logger.info(f"演员搜索完成，结果: {'找到' if data else '未找到'}")
+        except Exception as e:
+            logger.error(f"演员搜索失败: {str(e)}", exc_info=True)
+            yield event.plain_result("演员查询服务异常")
+            return
+
+        if not data:
+            logger.info("未找到演员信息")
+            yield event.plain_result("未找到该演员信息")
+            return
+
+        star_info = [
+            f"姓名: {data['name']}\n"
+            f"生日: {data['birthday']}\n"
+            f"年龄: {data['age']}\n"
+            f"身高: {data['height']}cm\n"
+            f"三维: {data['bust']}-{data['waistline']}-{data['hipline']}\n"
+            f"[CQ:image,file={data['avatar']}]"
+        ]
+        logger.debug(f"演员信息已构建: {data['name']}")
+
+        async for msg in self.send_reply(event, star_info):
+            yield msg
+
+    @filter.regex(r"^搜磁力([a-zA-Z0-9-]+)")
+    async def search_magnet(self, event: AstrMessageEvent) -> AsyncGenerator[MessageEventResult, Any]:
         messages = event.get_messages()
-        if messages is None:
-            yield event.plain_result("请输入番号")
+        result1 = str(messages[0])
+        result2 = re.findall(r"text='(.*?)'", result1)[0]
+        keyword = result2.split("搜磁力")[1]
+        logger.info(f"用户 {event.get_sender_id()} 在群组 {event.get_group_id()} 搜索磁力: {keyword}")
+
+        try:
+            logger.debug(f"开始获取影片详情: {keyword}")
+            detail = self.api.get_movie_detail(keyword)
+            logger.info(f"影片详情获取完成，结果: {'找到' if detail else '未找到'}")
+        except Exception as e:
+            logger.error(f"影片详情获取失败: {str(e)}", exc_info=True)
+            yield event.plain_result("影片详情获取失败")
             return
 
-        keyword = messages[0]
-        keyword = keyword.replace("搜磁力", "")
-        detail = self.api.get_movie_detail(keyword)
-
-        if detail is None:
-            yield event.plain_result("没有找到影片")
+        if not detail:
+            logger.info("未找到影片详情")
+            yield event.plain_result("没有找到该影片")
             return
 
-        if "gid" in detail and "uc" in detail:
-            logger.info("获取磁力链接")
-            logger.info(f"gid: {detail['gid']}, uc: {detail['uc']}")
-            magnets = self.api.get_magnets(
-                movie_id=keyword,
-                gid=detail['gid'],
-                uc=detail['uc']
-            )
-            logger.info(f"获取到 {len(magnets)} 个磁力链接")
-
-            # 修复这里：f-string 内部使用单引号
-            info_line = [
-                f"【影片详情】\r"
-                f"番号：{detail['id']}\r"
-                f"日期：{detail['date']}\r"
-                f"时长：{detail['videoLength']}\r"
-                f"标题：{detail['title']}\r"
-                f"演员：{detail['stars']}\r"
-                f"导演：{detail['director']}\r"
-                f"【磁力链接如下】"
-            ]
-
-            if magnets:
-                logger.info(f"共获取到 {len(magnets)} 个磁力链接")
-                for idx, magnet in enumerate(magnets[:5], 1):
-                    # 这里也改为单引号
-                    info_line.append(f"{idx}. {magnet}")
-            else:
-                logger.info("没有获取到磁力链接")
-                info_line.append("没有获取到磁力链接")
+        # 计算时长
+        if isinstance(detail.get("videoLength"), int):
+            try:
+                hours = detail["videoLength"] // 60
+                minutes = detail["videoLength"] % 60
+                videoLength = f"{hours}小时{minutes}分钟"
+                logger.debug(f"计算影片时长: {detail['videoLength']}分钟 -> {videoLength}")
+            except Exception as e:
+                logger.error(f"时长计算错误: {str(e)}")
+                videoLength = str(detail.get("videoLength", "未知"))
         else:
-            # 这里也改为单引号
-            info_line = [
-                f"【{detail['title']}】\r"
-                f"时长：{detail['runtime']}\r"
-                f"演员：{detail['star']}\r"
-                f"导演：{detail['director']}\r"
-                f"【无磁力链接】"
-            ]
+            videoLength = str(detail.get("videoLength", "未知"))
 
-        self.reply(event, info_line)
+        # 处理演员信息
+        stars_str = "暂无演员信息"
+        if detail.get("stars"):
+            try:
+                stars = [s["name"] if isinstance(s, dict) else str(s) for s in detail["stars"][:3]]
+                stars_str = "、".join(stars)
+                if len(detail["stars"]) > 3:
+                    stars_str += f" 等{len(detail['stars'])}人"
+                logger.debug(f"处理演员信息完成: {stars_str}")
+            except Exception as e:
+                logger.error(f"演员信息处理失败: {str(e)}")
+                stars_str = "演员信息解析错误"
+
+        # 处理导演信息
+        director_str = "未知"
+        if isinstance(detail.get("director"), dict):
+            director_str = detail["director"].get("name", "未知")
+        elif detail.get("director"):
+            director_str = str(detail["director"])
+        logger.debug(f"导演信息: {director_str}")
+
+        info_lines = [
+            f"【影片详情】",
+            f"番号：{detail.get('id', 'N/A')}",
+            f"标题：{detail.get('title', 'N/A')}",
+            f"日期：{detail.get('date', 'N/A')}",
+            f"时长：{videoLength}",
+            f"演员：{stars_str}",
+            f"导演：{director_str}"
+        ]
+
+        magnets = []
+        if 'gid' in detail and 'uc' in detail:
+            try:
+                logger.debug(f"开始获取磁力链接: gid={detail['gid']}, uc={detail['uc']}")
+                magnets = self.api.get_magnets(
+                    movie_id=keyword,
+                    gid=detail['gid'],
+                    uc=detail['uc']
+                )[:5]  # 限制最多5条
+                logger.info(f"获取到 {len(magnets)} 条磁力链接")
+            except Exception as e:
+                logger.error(f"磁力链接获取失败: {str(e)}", exc_info=True)
+        else:
+            logger.warning("缺少获取磁力链接的必要参数")
+
+        if magnets:
+            info_lines.append("【磁力链接】")
+            for idx, magnet in enumerate(magnets, 1):
+                magnet = magnet["link"]
+                info_lines.append(f"{idx}. {magnet}")
+        else:
+            info_lines.append("【未找到磁力链接】")
+            logger.info("未找到磁力链接")
+
+        logger.debug(f"准备返回磁力搜索结果，信息行数: {len(info_lines)}")
+        async for msg in self.send_reply(event, ["\n".join(info_lines)]):
+            yield msg
