@@ -1,11 +1,35 @@
-import asyncio
+# 调用谷歌翻译将输入的文字翻译成日文
 import hashlib
 import json
 import random
 import time
-import aiohttp
-from typing import Dict, Union, List, Any, Optional, Coroutine, LiteralString
+from typing import Dict, Union, List, Any
+import requests
 from astrbot.core import logger
+def translate_by_google(text, to="ja"):
+    """使用Google翻译文本（默认翻译为简体中文）"""
+    # API: https://www.jianshu.com/p/ce35d89c25c3
+    # client参数的选择: https://github.com/lmk123/crx-selection-translate/issues/223#issue-184432017
+    logger.info(f"开始调用谷歌翻译API，输入: {text}")
+    start_time = time.time()
+    global _google_trans_wait
+    url = f"https://translate.google.com/translate_a/single?client=gtx&dt=t&dj=1&ie=UTF-8&hl=zh-CN&sl=auto&tl={to}&q={text}"
+    r = requests.get(url)
+    logger.info(f"谷歌翻译API响应: {r.status_code}")
+    while r.status_code == 429:
+        logger.warning(f"HTTP {r.status_code}: {r.reason}: Google翻译请求超限，将等待{_google_trans_wait}秒后重试")
+        time.sleep(_google_trans_wait)
+        r = requests.get(url)
+        if r.status_code == 429:
+            _google_trans_wait += random.randint(60, 90)
+    if r.status_code == 200:
+        result = r.json()
+    else:
+        result = {'error_code': r.status_code, 'error_msg': r.reason}
+    sentences = result["sentences"]
+    end_time = time.time()
+    logger.info(f"翻译完成，耗时 {end_time - start_time:.2f} 秒")
+    return "".join([sentence["trans"] for sentence in sentences])
 
 class BaiduTranslator():
     """
@@ -85,7 +109,7 @@ class BaiduTranslator():
             logger.error("百度翻译API配置不完整，请检查config.ini文件")
             raise ValueError("百度翻译API配置不完整")
 
-    async def _generate_sign(self, query: str, salt: str) -> str:
+    def _generate_sign(self, query: str, salt: str) -> str:
         """
         生成API请求签名
 
@@ -99,28 +123,41 @@ class BaiduTranslator():
         sign_str = f"{self.appid}{query}{salt}{self.secret_key}"
         return hashlib.md5(sign_str.encode('utf-8')).hexdigest()
 
-    async def translate_by_baidu(
+    def translate(
             self,
             query: str,
             from_lang: str = 'auto',
             to_lang: str = 'jp',
-            **kwargs
-    ) -> Optional[str]:
-        """异步翻译方法"""
+             ** kwargs
+    ) -> None | dict[str, str] | dict[str, str] | dict[str, str] | dict[str, str] | dict[str, str | Any] | dict[
+        str, str] | dict[str, str] | Any:
+        """
+        执行翻译操作
+
+        参数:
+            query: 要翻译的文本
+            from_lang: 源语言代码(默认auto)
+            to_lang: 目标语言代码(默认zh)
+            kwargs: 其他API参数
+
+        返回:
+            翻译结果字典或错误信息
+        """
         if not query:
             logger.warning("翻译请求为空")
-            return None
+            return {'error': 'Empty query'}
 
+        # 验证语言代码
         if from_lang not in self.LANGUAGE_MAP:
             logger.warning(f"不支持的源语言代码: {from_lang}")
-            return None
+            return {'error': f'Unsupported source language: {from_lang}'}
 
         if to_lang not in self.LANGUAGE_MAP:
             logger.warning(f"不支持的目标语言代码: {to_lang}")
-            return None
+            return {'error': f'Unsupported target language: {to_lang}'}
 
         salt = str(random.randint(32768, 65536))
-        sign = await self._generate_sign(query, salt)
+        sign = self._generate_sign(query, salt)
 
         params = {
             'q': query,
@@ -129,78 +166,40 @@ class BaiduTranslator():
             'appid': self.appid,
             'salt': salt,
             'sign': sign,
-            **kwargs
+             ** kwargs
         }
 
         try:
             logger.info(f"发送翻译请求: {query[:50]}... (from {from_lang} to {to_lang})")
+            response = requests.get(self.api_url, params=params, timeout=10)
+            response.raise_for_status()
 
-            async with aiohttp.ClientSession() as session:
-                async with session.get(self.api_url, params=params, timeout=10) as response:
-                    response.raise_for_status()
-                    result = await response.json()
+            result = response.json()
+            logger.debug(f"收到API响应: {json.dumps(result, ensure_ascii=False)}")
 
-                    if 'error_code' in result:
-                        error_code = result.get('error_code')
-                        error_msg = self.ERROR_MESSAGES.get(error_code, '未知错误')
-                        logger.error(f"API返回错误: {error_code} - {error_msg}")
-                        return None
+            if 'error_code' in result:
+                error_code = result.get('error_code')
+                error_msg = self.ERROR_MESSAGES.get(error_code, '未知错误')
+                logger.error(f"API返回错误: {error_code} - {error_msg}")
+                return {
+                    'error': error_msg,
+                    'error_code': error_code
+                }
 
-                    return ''.join(item['dst'] for item in result.get('trans_result', []))
+            trans_results = result.get('trans_result', [])
+            for trans_result in trans_results:
+                return trans_result.get('dst', '')
 
-        except aiohttp.ClientError as e:
+        except requests.exceptions.RequestException as e:
             logger.error(f"请求失败: {str(e)}")
-            return None
+            return {'error': f'Request failed: {str(e)}'}
+        except json.JSONDecodeError:
+            logger.error("无效的JSON响应")
+            return {'error': 'Invalid JSON response'}
         except Exception as e:
             logger.error(f"未知错误: {str(e)}")
-            return None
+            return {'error': f'Unexpected error: {str(e)}'}
 
-    async def get_supported_languages(self) -> Dict[str, str]:
+    def get_supported_languages(self) -> Dict[str, str]:
         """获取支持的语言列表"""
         return self.LANGUAGE_MAP.copy()
-
-    async def translate_by_google(self, text, to="ja"):
-        """使用Google翻译文本（默认翻译为简体中文）异步版本"""
-        logger.info(f"开始调用谷歌翻译API，输入: {text}")
-        start_time = time.time()
-        global _google_trans_wait
-
-        # 构建请求URL
-        url = f"https://translate.google.com/translate_a/single?client=gtx&dt=t&dj=1&ie=UTF-8&hl=zh-CN&sl=auto&tl={to}&q={text}"
-        logger.info(f"请求地址: {url}")
-
-        # 使用异步会话
-        async with aiohttp.ClientSession() as session:
-            while True:
-                try:
-                    async with session.get(url) as response:
-                        # 处理429错误（请求过多）
-                        if response.status == 429:
-                            logger.warning(f"HTTP 429: Google翻译请求超限，将等待{_google_trans_wait}秒后重试")
-                            await asyncio.sleep(_google_trans_wait)
-                            _google_trans_wait += random.randint(60, 90)
-                            continue
-
-                        # 检查其他错误状态
-                        response.raise_for_status()
-
-                        # 解析响应
-                        result = await response.json()
-                        sentences = result["sentences"]
-
-                        end_time = time.time()
-                        logger.info(f"翻译完成，耗时 {end_time - start_time:.2f} 秒")
-
-                        return "".join([sentence["trans"] for sentence in sentences])
-
-                except aiohttp.ClientError as e:
-                    logger.error(f"谷歌翻译请求失败: {str(e)}")
-                    raise
-                except json.JSONDecodeError:
-                    logger.error("谷歌翻译响应解析失败")
-                    raise
-
-    async def translate(self, message: str) -> str | None | LiteralString:
-        if self.appid and self.secret_key:
-            return await self.translate_by_baidu(message)
-        return await self.translate_by_google(message)
