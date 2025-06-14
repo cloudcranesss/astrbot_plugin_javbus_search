@@ -9,7 +9,7 @@ def translate(text, to="ja"):
     # API: https://www.jianshu.com/p/ce35d89c25c3
     # client参数的选择: https://github.com/lmk123/crx-selection-translate/issues/223#issue-184432017
     config = AstrBotConfig()
-    proxy = config.get("google_proxy",  "socks5://192.168.1.254:1081")
+    proxy = config.get("google_proxy",  "")
     if proxy:
         proxies = {
             "http": proxy,

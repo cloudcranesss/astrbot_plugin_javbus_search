@@ -1,13 +1,11 @@
 import random
 import re
 from typing import AsyncGenerator, Any, List, Optional, Dict
-
 import requests
 from astrbot.core.message.message_event_result import MessageEventResult
 from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Context, Star, register
 from astrbot.api import logger, AstrBotConfig
-
 from utils.send_forward_message import forward_message_by_qq
 from utils.translate import translate
 import asyncio
