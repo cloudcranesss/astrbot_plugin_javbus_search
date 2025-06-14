@@ -4,7 +4,6 @@ import json
 import random
 import time
 from typing import Dict, Union, List
-
 import requests
 from astrbot.core import logger, AstrBotConfig
 
@@ -205,6 +204,12 @@ class BaiduTranslator:
     def get_supported_languages(self) -> Dict[str, str]:
         """获取支持的语言列表"""
         return self.LANGUAGE_MAP.copy()
+
+def translate(text: str, target_language: str = "ja"):
+    if AstrBotConfig.get_config("baidu_appid") and AstrBotConfig.get_config("baidu_secret_key"):
+        return translate_by_baidu(text)
+    else:
+        return translate_by_google(text)
 
 if  __name__ == "__main__":
     translate_by_baidu("hello")
