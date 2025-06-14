@@ -10,7 +10,7 @@ from utils.javbus_api import JavBusAPI
 import asyncio
 
 
-@register("JavBus Serach", "cloudcranesss", "一个基于JavBus API的搜索服务", "v1.0.0",
+@register("JavBus Serach", "cloudcranesss", "一个基于JavBus API的搜索服务", "v1.0.1",
           "https://github.com/cloudcraness/astrbot_plugin_javbus_serach")
 class JavBusSerach(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
