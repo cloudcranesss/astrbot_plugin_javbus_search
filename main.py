@@ -213,11 +213,13 @@ class JavBusSerach(Star):
         if 'gid' in detail and 'uc' in detail:
             try:
                 logger.info(f"开始获取磁力链接: gid={detail['gid']}, uc={detail['uc']}")
-                magnets = await self.api.get_magnets(  # 添加await
+                # 修正：先获取完整磁力链接列表，再进行切片
+                all_magnets = await self.api.get_magnets(
                     movie_id=keyword,
                     gid=detail['gid'],
                     uc=detail['uc']
-                )[:5]
+                )
+                magnets = all_magnets[:5]  # 获取前5条磁力链接
                 logger.info(f"获取到 {len(magnets)} 条磁力链接")
             except Exception as e:
                 logger.error(f"磁力链接获取失败: {str(e)}", exc_info=True)
