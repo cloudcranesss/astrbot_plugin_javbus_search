@@ -185,7 +185,9 @@ class BaiduTranslator():
                     'error_code': error_code
                 }
 
-            return result
+            trans_results = result.get('trans_result', [])
+            for trans_result in trans_results:
+                return trans_result.get('dst', '')
 
         except requests.exceptions.RequestException as e:
             logger.error(f"请求失败: {str(e)}")
