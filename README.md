@@ -2,44 +2,118 @@
 
 一个基于JavBus API的AstrBot插件，提供影片、演员和磁力链接搜索功能。
 
-## 功能
+## 功能特点
 
-- 通过关键词搜索影片（番号）
-- 搜索演员信息
-- 获取影片磁力链接
-- 支持合并转发消息
+- 🔍 **影片搜索**：通过关键词（番号）搜索影片信息
+- 👤 **演员搜索**：搜索演员详细信息及作品
+- ⛓️ **磁力链接获取**：获取影片的磁力下载链接
+- 📨 **智能消息转发**：支持合并转发消息展示搜索结果
+- 🌐 **多语言支持**：内置百度翻译API处理多语言搜索
+- 🖼️ **图片代理**：支持自定义图片代理服务
 
-## 安装
+## 安装指南
 
+### 前置要求
+- Python 3.7+
+- AstrBot框架
+
+### 安装步骤
 1. 将插件文件夹放入AstrBot的`data/plugins`目录
-2. 确保已安装Python依赖：
+2. 安装Python依赖：
+   ```bash
+   pip install requests aiohttp
    ```
-   pip install requests
+3. 在AstrBot配置中添加以下配置项：
+   ```json
+   {
+     "javbus_api_url": "JavBus API地址",
+     "forward_url": "QQ合并消息转发服务地址",
+     "javbus_image_proxy": "JavBus图片代理地址",
+     "baidu_api_key": "百度翻译API密钥",
+     "baidu_secret_key": "百度翻译API密钥",
+     "qq_access_token": "QQ访问令牌"
+   }
    ```
-3. 在AstrBot配置中添加JavBus API URL
 
-## 配置
-
-在`_conf_schema.json`中配置以下参数：
-
-- `javbus_api_url`: JavBus API地址
-- `forward_url`: QQ合并消息转发服务地址
-- `javbus_image_proxy`: JavBus  图片代理地址
-
-## 使用
+## 使用说明
 
 ### 命令格式
 
-- 搜关键词[关键词] - 搜索影片
-- 搜演员[演员名] - 搜索演员信息
-- 搜磁力[番号] - 获取影片磁力链接
+| 命令 | 格式 | 示例 | 功能 |
+|------|------|------|------|
+| 影片搜索 | `搜关键词[关键词]` | `搜关键词ABP-001` | 搜索影片信息 |
+| 演员搜索 | `搜演员[演员名]` | `搜演员三上悠亚` | 搜索演员信息 |
+| 磁力搜索 | `搜磁力[番号]` | `搜磁力ABP-001` | 获取影片磁力链接 |
 
-## 开发
+### 功能演示
 
+**影片搜索结果示例：**
 ```
-@register("JavBus Serach", "cloudcranesss", "一个基于JavBus API的搜索服务", "v1.0.0", "https://github.com/cloudcranesss/astrbot_plugin_javbus_search")
+番号: ABP-001
+标题: 新人NO.1STYLE...
+日期: 2023-05-01
+标签: 高清, 新人
+[影片封面图片]
+```
+
+**演员信息结果示例：**
+```
+姓名: 三上悠亚
+生日: 1993-06-18
+年龄: 30
+身高: 159cm
+三维: 88-54-90
+[演员照片]
+```
+
+**磁力链接结果示例：**
+```
+【影片详情】
+番号：ABP-001
+标题：新人NO.1STYLE...
+日期：2023-05-01
+时长：2小时10分钟
+演员：三上悠亚
+导演：未知
+[影片封面图片]
+
+【磁力链接】
+1. ABP-001-C.mp4 1.2GB
+   2023-05-02 高清 字幕：有
+   magnet:?xt=urn:btih:XXXX...
+```
+
+## 技术实现
+
+### 核心组件
+- **JavBusAPI**：封装了与JavBus API的交互逻辑
+- **BaiduTranslator**：处理多语言翻译需求
+- **消息转发服务**：支持QQ合并消息转发
+- **图片代理系统**：解决图片访问限制问题
+
+### 翻译服务
+支持多种语言的互译，语言代码包括：
+```html
+'auto': '自动检测',
+'zh': '中文',
+'en': '英语',
+'jp': '日语',
+'kor': '韩语',
+'fra': '法语',
+# ...（共支持20+种语言）
+```
+
+## 开发信息
+
+```html
+@register(
+    "JavBus Serach", 
+    "cloudcranesss", 
+    "一个基于JavBus API的搜索服务", 
+    "v1.0.1", 
+    "https://github.com/cloudcraness/astrbot_plugin_javbus_serach"
+)
 ```
 
 ## 许可证
-
 MIT License
