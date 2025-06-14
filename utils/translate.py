@@ -5,9 +5,7 @@ import random
 import time
 from typing import Dict, Union, List
 import requests
-from astrbot.core import logger, AstrBotConfig
-from astrbot.api.star import Context, Star
-
+from astrbot.core import logger
 def translate_by_google(text, to="ja"):
     """使用Google翻译文本（默认翻译为简体中文）"""
     # API: https://www.jianshu.com/p/ce35d89c25c3
@@ -33,11 +31,7 @@ def translate_by_google(text, to="ja"):
     logger.info(f"翻译完成，耗时 {end_time - start_time:.2f} 秒")
     return "".join([sentence["trans"] for sentence in sentences])
 
-def translate_by_baidu(text: str) -> dict[str, str | list[dict[str, str]]]:
-    baidu = BaiduTranslator()
-    return baidu.translate(text, 'auto', 'jq')
-
-class BaiduTranslator(Star):
+class BaiduTranslator():
     """
     百度翻译API封装类
 
@@ -101,15 +95,13 @@ class BaiduTranslator(Star):
         90107: '认证未通过或未生效'
     }
 
-    def __init__(self, config: AstrBotConfig, context: Context):
+    def __init__(self, appid: str, secret_key: str):
         """初始化翻译器"""
-        super().__init__(context)
-        self.config = config
         self.api_url = 'https://fanyi-api.baidu.com/api/trans/vip/translate'
 
         # 获取API凭证
-        self.appid = self.config.get('baidu_api_key', '')
-        self.secret_key = self.config.get('baidu_secret_key', '')
+        self.appid = appid
+        self.secret_key = secret_key
 
         logger.info(f"appid: {self.appid} secret_key: {self.secret_key}")
 
@@ -208,9 +200,3 @@ class BaiduTranslator(Star):
     def get_supported_languages(self) -> Dict[str, str]:
         """获取支持的语言列表"""
         return self.LANGUAGE_MAP.copy()
-
-def translate(text: str, target_language: str = "ja"):
-        return translate_by_baidu(text)
-
-if  __name__ == "__main__":
-    translate_by_baidu("hello")

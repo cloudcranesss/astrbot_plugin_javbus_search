@@ -7,7 +7,7 @@ from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Context, Star, register
 from astrbot.api import logger, AstrBotConfig
 from .utils.send_forward_message import forward_message_by_qq
-from .utils.translate import translate
+from .utils.translate import BaiduTranslator
 import asyncio
 
 
@@ -20,11 +20,14 @@ class JavBusSerach(Star):
         self.javbus_api_url = config.get("javbus_api_url", "")
         self.forward_url = config.get("forward_url", "")
         self.javbus_image_proxy = config.get("javbus_image_proxy", "")
+        self.baidu_api_key = config.get("baidu_api_key", "")
+        self.baidu_secret_key = config.get("baidu_secret_key", "")
         logger.info(
             f"初始化JavBus搜索插件，API地址: {self.javbus_api_url}\n"
             f"转发地址配置: {'已配置' if self.forward_url else '未配置'}\n"
             f"JavBus 图片代理地址: {self.javbus_image_proxy}")
         self.api = JavBusAPI(self.javbus_api_url)
+        self.trans =  BaiduTranslator(self.baidu_api_key, self.baidu_secret_key)
 
     async def send_reply(
             self,
@@ -123,7 +126,7 @@ class JavBusSerach(Star):
 
         try:
             logger.info(f"开始调用演员搜索API: {keyword}")
-            data = self.api.get_star_by_name(translate(keyword))
+            data = self.api.get_star_by_name(self.trans.translate(keyword))
             logger.info(f"演员搜索结果: {data}")
         except Exception as e:
             logger.error(f"演员搜索失败: {str(e)}", exc_info=True)
