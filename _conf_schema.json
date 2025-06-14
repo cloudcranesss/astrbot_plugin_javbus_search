@@ -1,0 +1,14 @@
+{
+  "javbus_api_url": {
+    "description": "JavVus API",
+    "type": "string",
+    "hint": "必填项。搭建参考：https://github.com/ovnrain/javbus-api",
+    "default": ""
+  },
+  "forward_url": {
+    "description": "合并消息转发服务",
+    "type": "string",
+    "hint": "选填项。",
+    "default": ""
+  }
+}
