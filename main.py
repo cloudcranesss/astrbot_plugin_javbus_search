@@ -1,5 +1,5 @@
 import re
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Generator
 from astrbot.core.message.message_event_result import MessageEventResult
 from utils.send_forward_message import forward_message_by_qq
 from utils.javbus_api import *
@@ -16,18 +16,13 @@ class JavBusSerach(Star):
         self.forward_url = config.get("forward_url", "")
         self.api = JavBusAPI(self.javbus_api_url)
 
-    async def reply(self, event: AstrMessageEvent, content):
-        yield event.plain_result(content)
-
-    def send_forward_message(self, event: AstrMessageEvent, content: List[str], screenshots: Optional[List[str]] = None) -> None:
-        forward_message_by_qq(self.forward_url, event.get_sender_id(), event.get_group_id(), content, screenshots)
-
-    @filter.regex(r"搜.*")
-    async def search(self, event: AstrMessageEvent):
-        user_id = event.get_sender_id()
-        message = event.get_messages()
-        logger.info(f"用户 {user_id} 触发了 search 命令")
-
+    def reply(self, event: AstrMessageEvent, content: List[str], screenshots: Optional[List[str]] = None) -> Generator[
+        MessageEventResult, Any, None]:
+        if self.forward_url:
+            forward_message_by_qq(self.forward_url, event.get_sender_id(), event.get_group_id(), content, screenshots)
+        else:
+            for message in content:
+                yield event.plain_result(message)
 
     # 通过关键词搜索影片，一般是番号，以搜+番号的格式
     @filter.regex(r"^搜关键词(.+)", flags=re.IGNORECASE, priority=1)
@@ -47,7 +42,7 @@ class JavBusSerach(Star):
                                    f"标签: {data['tags']}\r"
                                    f"[CQ:image,file={data['img']}]\n")
 
-            self.send_forward_message(event, movies_info)
+            self.reply(event, movies_info)
             self.api.close()
             yield event.plain_result("搜索完成")
             yield event.plain_result(f"共找到 {len(datas['movies'])} 个结果")
@@ -71,7 +66,7 @@ class JavBusSerach(Star):
                              f"身高: {data['height']}\r"
                              f"三维: {data['bust']} {data['waistline']} {data['hipline']}\r"
                              f"[CQ:image,file={data['avatar']}]")
-            self.send_forward_message(event, star_info)
+            self.reply(event, star_info)
         else:
             yield event.plain_result("未找到该演员")
 
@@ -83,13 +78,15 @@ class JavBusSerach(Star):
         if messages is None:
             yield event.plain_result("请输入番号")
             return
+
         keyword = messages[0]
         keyword = keyword.replace("搜磁力", "")
         detail = self.api.get_movie_detail(keyword)
+
         if detail is None:
             yield event.plain_result("没有找到影片")
             return
-        info_line = []
+
         if "gid" in detail and "uc" in detail:
             logger.info("获取磁力链接")
             logger.info(f"gid: {detail['gid']}, uc: {detail['uc']}")
@@ -99,24 +96,29 @@ class JavBusSerach(Star):
                 uc=detail['uc']
             )
             logger.info(f"获取到 {len(magnets)} 个磁力链接")
+
+            # 修复这里：f-string 内部使用单引号
             info_line = [
                 f"【影片详情】\r"
-                f"番号：{detail["id"]}\r"
-                f"日期：{detail["date"]}\r"
-                f"时长：{detail["videoLength"]}\r"
-                f"标题：{detail["title"]}\r"
-                f"演员：{detail["stars"]}\r"
-                f"导演：{detail["director"]}\r"
+                f"番号：{detail['id']}\r"
+                f"日期：{detail['date']}\r"
+                f"时长：{detail['videoLength']}\r"
+                f"标题：{detail['title']}\r"
+                f"演员：{detail['stars']}\r"
+                f"导演：{detail['director']}\r"
                 f"【磁力链接如下】"
             ]
+
             if magnets:
                 logger.info(f"共获取到 {len(magnets)} 个磁力链接")
                 for idx, magnet in enumerate(magnets[:5], 1):
-                    info_line.append((magnet, idx))
+                    # 这里也改为单引号
+                    info_line.append(f"{idx}. {magnet}")
             else:
                 logger.info("没有获取到磁力链接")
                 info_line.append("没有获取到磁力链接")
         else:
+            # 这里也改为单引号
             info_line = [
                 f"【{detail['title']}】\r"
                 f"时长：{detail['runtime']}\r"
@@ -125,4 +127,4 @@ class JavBusSerach(Star):
                 f"【无磁力链接】"
             ]
 
-        self.send_forward_message(event,  info_line)
+        self.reply(event, info_line)
