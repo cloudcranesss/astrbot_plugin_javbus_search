@@ -111,7 +111,7 @@
     "cloudcranesss", 
     "一个基于JavBus API的搜索服务", 
     "v1.0.1", 
-    "https://github.com/cloudcraness/astrbot_plugin_javbus_serach"
+    "https://github.com/cloudcranesss/astrbot_plugin_javbus_search"
 )
 ```
 
