@@ -87,7 +87,7 @@ class JavBusSerach(Star):
             return
 
         movies_info = []
-        for idx, data in enumerate(datas["movies"][:5]):
+        for idx, data in enumerate(datas["movies"]):
             logger.info(f"处理第 {idx + 1}/{len(datas['movies'])} 个结果: {data.get('id')}")
             title = data['title'][:20] + "..." if len(data['title']) > 20 else data['title']
             movies_info.append(
