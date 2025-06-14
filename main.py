@@ -1,13 +1,16 @@
+import json
+import random
 import re
 import time
-from typing import AsyncGenerator, Any, List
+from typing import AsyncGenerator, Any, List, Optional, Dict
+
+import requests
 from astrbot.core.message.message_event_result import MessageEventResult
 from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Context, Star, register
 from astrbot.api import logger, AstrBotConfig
 
 from utils.send_forward_message import forward_message_by_qq
-from utils.javbus_api import JavBusAPI
 import asyncio
 
 
@@ -123,8 +126,7 @@ class JavBusSerach(Star):
 
         try:
             logger.info(f"开始调用演员搜索API: {keyword}")
-            time.sleep(1)
-            data = self.api.get_star_by_name(keyword.encode("utf-8"))
+            data = self.api.get_star_by_name(keyword)
             logger.info(f"演员搜索结果: {data}")
         except Exception as e:
             logger.error(f"演员搜索失败: {str(e)}", exc_info=True)
@@ -140,9 +142,9 @@ class JavBusSerach(Star):
             f"姓名: {data['name']}\n"
             f"生日: {data['birthday']}\n"
             f"年龄: {data['age']}\n"
-            f"身高: {data['height']}cm\n"
-            f"三维: {data['bust']}-{data['waistline']}-{data['hipline']}\n"
-            f"[CQ:image,file={await self.proxy_image(data['avatar'])}"
+            f"身高: {data['height']}\n"
+            f"三维: {data['bust']} - {data['waistline']} - {data['hipline']}\n"
+            f"[CQ:image,file={await self.proxy_image(data['avatar'])}]"
         ]
         logger.info(f"演员信息已构建: {data['name']}")
 
@@ -245,9 +247,10 @@ class JavBusSerach(Star):
 
                 # 合并成单次格式化操作
                 info_lines.append(
-                    f"{idx}. {title} | {size} | {share_date}"
-                    f"{' 高清' if is_hd else ''} | {link} | "
-                    f"字幕：{'有' if has_sub else '无'}"
+                    f"{idx}. {title} {size}\n"
+                    f"{share_date}\n"
+                    f"{' 高清' if is_hd else ''} 字幕：{'有' if has_sub else '无'}\n"
+                    f"{link}"
                 )
         else:
             info_lines.append("【未找到磁力链接】")
@@ -256,3 +259,191 @@ class JavBusSerach(Star):
         logger.info(f"准备返回磁力搜索结果，信息行数: {len(info_lines)}")
         async for msg in self.send_reply(event, ["\n".join(info_lines)]):
             yield msg
+
+class JavBusAPI:
+    def __init__(self, base_url: str = None):
+        """
+        初始化JAVBUS API客户端
+
+        :param base_url: API基础URL，默认为https://www.javbus.com
+        """
+        self.base_url = base_url.rstrip('/')
+        logger.info(f"JavBus API初始化成功，基础URL为：{self.base_url}")
+        self.session = requests.Session()
+        self.session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        })
+
+    def get_movies(
+            self,
+            page: int = 1,
+            magnet: str = "exist",
+            filter_type: Optional[str] = None,
+            filter_value: Optional[str] = None,
+            movie_type: str = "normal"
+    ) -> Dict[str, Any]:
+        """
+        获取影片列表
+
+        :param page: 页码，默认为1
+        :param magnet: 磁力链接筛选，'exist'或'all'，默认为'exist'
+        :param filter_type: 筛选类型，可选'star','genre','director','studio','label','series'
+        :param filter_value: 筛选值，必须与filter_type一起使用
+        :param movie_type: 影片类型，'normal'或'uncensored'，默认为'normal'
+        :return: 包含影片列表和分页信息的字典
+        """
+        params = {
+            'page': page,
+            'magnet': magnet,
+            'type': movie_type
+        }
+
+        if filter_type and filter_value:
+            params.update({
+                'filterType': filter_type,
+                'filterValue': filter_value
+            })
+
+        url = f"{self.base_url}/api/movies"
+        response = self.session.get(url, params=params)
+        response.raise_for_status()
+        self.close()
+        return response.json()
+
+    def search_movies(
+            self,
+            keyword: str,
+            page: int = 1,
+            magnet: str = "exist",
+            movie_type: str = "normal"
+    ) -> Dict[str, Any]:
+        """
+        搜索影片
+
+        :param keyword: 搜索关键词
+        :param page: 页码，默认为1
+        :param magnet: 磁力链接筛选，'exist'或'all'，默认为'exist'
+        :param movie_type: 影片类型，'normal'或'uncensored'，默认为'normal'
+        :return: 包含影片列表和分页信息的json
+        """
+        params = {
+            'keyword': keyword,
+            'page': page,
+            'magnet': magnet,
+            'type': movie_type
+        }
+
+        url = f"{self.base_url}/api/movies/search"
+        response = self.session.get(url, params=params)
+        response.raise_for_status()
+        self.close()
+        return response.json()
+
+    def get_movie_detail(self, movie_id: str) -> Dict[str, Any]:
+        """
+        获取影片详情
+
+        :param movie_id: 影片ID（番号）
+        :return: 包含影片详细信息的字典
+        """
+        url = f"{self.base_url}/api/movies/{movie_id}"
+        response = self.session.get(url)
+        response.raise_for_status()
+        self.close()
+        return response.json()
+
+    def get_magnets(
+            self,
+            movie_id: str,
+            gid: str,
+            uc: str,
+            sort_by: str = "size",
+            sort_order: str = "desc"
+    ) -> List[Dict[str, Any]]:
+        """
+        获取影片磁力链接
+
+        :param movie_id: 影片ID（番号）
+        :param gid: 从影片详情获取的gid
+        :param uc: 从影片详情获取的uc
+        :param sort_by: 排序字段，'date'或'size'，默认为'size'
+        :param sort_order: 排序顺序，'asc'或'desc'，默认为'desc'
+        :return: 磁力链接列表
+        """
+        params = {
+            'gid': gid,
+            'uc': uc,
+            'sortBy': sort_by,
+            'sortOrder': sort_order
+        }
+
+        url = f"{self.base_url}/api/magnets/{movie_id}"
+        response = self.session.get(url, params=params)
+        response.raise_for_status()
+        self.close()
+        return response.json()
+
+    def get_star_detail(
+            self,
+            star_id: str,
+            star_type: str = "normal"
+    ) -> Dict[str, Any]:
+        """
+        获取演员详情
+
+        :param star_id: 演员ID
+        :param star_type: 演员类型，'normal'或'uncensored'，默认为'normal'
+        :return: 包含演员详细信息的字典
+        """
+        params = {
+            'type': star_type
+        }
+
+        url = f"{self.base_url}/api/stars/{star_id}"
+        response = self.session.get(url, params=params)
+        response.raise_for_status()
+        self.close()
+        return response.json()
+
+    def get_star_by_name(self,  star_name: str) -> dict[str, Any] | None:
+        """
+        根据演员名称获取演员信息
+        :param star_name: 演员名称
+        :return: 包含演员详细信息的字典
+        """
+        # 先根据演员名称获取影片列表
+        star_ids = []
+        movie_ids  = []
+        movie_lists = self.search_movies(star_name)
+        # 随机获取影片ID
+        for movie_list in movie_lists["movies"]:
+            movie_ids.append(movie_list["id"])
+
+        logger.info(f"随机获取的影片ID为: {movie_ids}")
+
+        if not movie_ids:
+            return None
+        movie_id = random.choice(movie_ids)
+
+        # 根据影片ID获取影片详情
+        movie_details = self.get_movie_detail(movie_id)
+        for movie_detail in movie_details["stars"]:
+            # 如果star_name包含在movie_detail['name']中
+            if star_name in movie_detail['name']:
+                star_ids.append(movie_detail['id'])
+                logger.info(f"演员ID: {star_ids}")
+
+        star_id = star_ids[0]
+        star_details = self.get_star_detail(star_id)
+        logger.info(f"演员姓名: {star_details['name']}, 年龄: {star_details['age']}")
+        self.close()
+        return star_details
+    def close(self):
+        """关闭会话"""
+        self.session.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
