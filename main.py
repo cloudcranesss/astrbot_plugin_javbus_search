@@ -1,7 +1,5 @@
-import json
 import random
 import re
-import time
 from typing import AsyncGenerator, Any, List, Optional, Dict
 
 import requests
@@ -11,6 +9,7 @@ from astrbot.api.star import Context, Star, register
 from astrbot.api import logger, AstrBotConfig
 
 from utils.send_forward_message import forward_message_by_qq
+from utils.translate import translate
 import asyncio
 
 
@@ -126,7 +125,7 @@ class JavBusSerach(Star):
 
         try:
             logger.info(f"开始调用演员搜索API: {keyword}")
-            data = self.api.get_star_by_name(keyword)
+            data = self.api.get_star_by_name(translate(keyword))
             logger.info(f"演员搜索结果: {data}")
         except Exception as e:
             logger.error(f"演员搜索失败: {str(e)}", exc_info=True)

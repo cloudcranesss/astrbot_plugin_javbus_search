@@ -16,5 +16,11 @@
     "type": "string",
     "hint": "选填项。",
     "default": ""
+  },
+  "google_proxy": {
+    "description": "谷歌翻译代理",
+    "type": "string",
+    "hint": "选填项。",
+    "default": ""
   }
 }
