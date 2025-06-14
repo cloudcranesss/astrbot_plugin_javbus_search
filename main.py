@@ -1,11 +1,18 @@
+import os
 import re
+import sys
 from typing import AsyncGenerator, Generator
 from astrbot.core.message.message_event_result import MessageEventResult
-from utils.send_forward_message import forward_message_by_qq
-from utils.javbus_api import *
 from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Context, Star, register
 from astrbot.api import logger, AstrBotConfig
+
+# 确保模块搜索路径正确
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(current_dir)
+
+from utils.send_forward_message import forward_message_by_qq
+from utils.javbus_api import *
 
 @register("JavBus Serach", "cloudcranesss", "一个基于JavBus API的搜索服务", "v1.0.0", "https://github.com/cloudcraness/astrbot_plugin_javbus_serach")
 class JavBusSerach(Star):
