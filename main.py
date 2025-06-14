@@ -18,6 +18,7 @@ class JavBusSerach(Star):
         self.config = config
         self.javbus_api_url = config.get("javbus_api_url", "")
         self.forward_url = config.get("forward_url", "")
+        self.javbus_image_proxy = config.get("javbus_image_proxy", "")
         logger.info(
             f"初始化JavBus搜索插件，API地址: {self.javbus_api_url}, 转发地址配置: {'已配置' if self.forward_url else '未配置'}")
         self.api = JavBusAPI(self.javbus_api_url)
@@ -28,7 +29,7 @@ class JavBusSerach(Star):
             content: List[str]
     ) -> AsyncGenerator[MessageEventResult, Any]:
         """统一消息发送方法"""
-        logger.debug(f"准备发送回复，内容长度: {len(content)}")
+        logger.info(f"准备发送回复，内容长度: {len(content)}")
         if self.forward_url:
             logger.info(f"使用转发服务发送消息，接收方: {event.get_group_id() or '私聊'}")
             # 异步执行同步IO操作
@@ -40,12 +41,18 @@ class JavBusSerach(Star):
                 content,
                 []
             )
-            logger.debug("转发消息请求已提交")
+            logger.info("转发消息请求已提交")
         else:
-            logger.debug("使用普通消息回复")
+            logger.info("使用普通消息回复")
             for message in content:
                 yield event.plain_result(message)
         logger.info(f"消息发送完成，共 {len(content)} 条内容")
+
+    # 将 www.javbus.com 替换为 self.javbus_image_proxy
+    async def proxy_image(self, image_url: str):
+        pattern = r"^https?://www\.javbus\.com"
+        return re.sub(pattern, self.javbus_image_proxy, image_url)
+
 
     @filter.regex(r"^搜关键词(.+)", flags=re.IGNORECASE, priority=1)
     async def search_movies(self, event: AstrMessageEvent) -> AsyncGenerator[MessageEventResult, Any]:
@@ -61,7 +68,7 @@ class JavBusSerach(Star):
         logger.info(f"用户 {event.get_sender_id()} 在群组 {event.get_group_id()} 搜索影片: {keyword}")
 
         try:
-            logger.debug(f"开始调用搜索API，关键词: {keyword}")
+            logger.info(f"开始调用搜索API，关键词: {keyword}")
             datas = self.api.search_movies(keyword=keyword)
             logger.info(f"搜索完成，找到 {len(datas.get('movies', []))} 个结果")
         except Exception as e:
@@ -75,15 +82,17 @@ class JavBusSerach(Star):
             return
 
         movies_info = []
-        for idx, data in enumerate(datas["movies"]):
-            logger.debug(f"处理第 {idx + 1}/{len(datas['movies'])} 个结果: {data.get('id')}")
+        #  遍历影片数据
+        #  只处理前5个
+        for idx, data in enumerate(datas["movies"][:5]):
+            logger.info(f"处理第 {idx + 1}/{len(datas['movies'])} 个结果: {data.get('id')}")
             title = data['title'][:20] + "..." if len(data['title']) > 20 else data['title']
             movies_info.append(
                 f"番号: {data['id']}\n"
                 f"标题: {title}\n"
                 f"日期: {data['date']}\n"
                 f"标签: {', '.join(data['tags'])}\n"
-                f"[CQ:image,file={data['img']}]\n"
+                f"[CQ:image,file={await self.proxy_image(data['img'])}]\n"
             )
 
         # 添加统计信息
@@ -107,7 +116,7 @@ class JavBusSerach(Star):
         logger.info(f"用户 {event.get_sender_id()} 在群组 {event.get_group_id()} 搜索演员: {keyword}")
 
         try:
-            logger.debug(f"开始调用演员搜索API: {keyword}")
+            logger.info(f"开始调用演员搜索API: {keyword}")
             data = self.api.get_star_by_name(keyword)
             logger.info(f"演员搜索完成，结果: {'找到' if data else '未找到'}")
         except Exception as e:
@@ -126,9 +135,9 @@ class JavBusSerach(Star):
             f"年龄: {data['age']}\n"
             f"身高: {data['height']}cm\n"
             f"三维: {data['bust']}-{data['waistline']}-{data['hipline']}\n"
-            f"[CQ:image,file={data['avatar']}]"
+            f"[CQ:image,file={await self.proxy_image(data['avatar'])}"
         ]
-        logger.debug(f"演员信息已构建: {data['name']}")
+        logger.info(f"演员信息已构建: {data['name']}")
 
         async for msg in self.send_reply(event, star_info):
             yield msg
@@ -142,7 +151,7 @@ class JavBusSerach(Star):
         logger.info(f"用户 {event.get_sender_id()} 在群组 {event.get_group_id()} 搜索磁力: {keyword}")
 
         try:
-            logger.debug(f"开始获取影片详情: {keyword}")
+            logger.info(f"开始获取影片详情: {keyword}")
             detail = self.api.get_movie_detail(keyword)
             logger.info(f"影片详情获取完成，结果: {'找到' if detail else '未找到'}")
         except Exception as e:
@@ -161,7 +170,7 @@ class JavBusSerach(Star):
                 hours = detail["videoLength"] // 60
                 minutes = detail["videoLength"] % 60
                 videoLength = f"{hours}小时{minutes}分钟"
-                logger.debug(f"计算影片时长: {detail['videoLength']}分钟 -> {videoLength}")
+                logger.info(f"计算影片时长: {detail['videoLength']}分钟 -> {videoLength}")
             except Exception as e:
                 logger.error(f"时长计算错误: {str(e)}")
                 videoLength = str(detail.get("videoLength", "未知"))
@@ -176,7 +185,7 @@ class JavBusSerach(Star):
                 stars_str = "、".join(stars)
                 if len(detail["stars"]) > 3:
                     stars_str += f" 等{len(detail['stars'])}人"
-                logger.debug(f"处理演员信息完成: {stars_str}")
+                logger.info(f"处理演员信息完成: {stars_str}")
             except Exception as e:
                 logger.error(f"演员信息处理失败: {str(e)}")
                 stars_str = "演员信息解析错误"
@@ -187,7 +196,7 @@ class JavBusSerach(Star):
             director_str = detail["director"].get("name", "未知")
         elif detail.get("director"):
             director_str = str(detail["director"])
-        logger.debug(f"导演信息: {director_str}")
+        logger.info(f"导演信息: {director_str}")
 
         info_lines = [
             f"【影片详情】",
@@ -202,7 +211,7 @@ class JavBusSerach(Star):
         magnets = []
         if 'gid' in detail and 'uc' in detail:
             try:
-                logger.debug(f"开始获取磁力链接: gid={detail['gid']}, uc={detail['uc']}")
+                logger.info(f"开始获取磁力链接: gid={detail['gid']}, uc={detail['uc']}")
                 magnets = self.api.get_magnets(
                     movie_id=keyword,
                     gid=detail['gid'],
@@ -223,6 +232,6 @@ class JavBusSerach(Star):
             info_lines.append("【未找到磁力链接】")
             logger.info("未找到磁力链接")
 
-        logger.debug(f"准备返回磁力搜索结果，信息行数: {len(info_lines)}")
+        logger.info(f"准备返回磁力搜索结果，信息行数: {len(info_lines)}")
         async for msg in self.send_reply(event, ["\n".join(info_lines)]):
             yield msg

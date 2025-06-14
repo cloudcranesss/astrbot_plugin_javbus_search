@@ -24,6 +24,7 @@
 
 - `javbus_api_url`: JavBus API地址
 - `forward_url`: QQ合并消息转发服务地址
+- `javbus_image_proxy`: JavBus  图片代理地址
 
 ## 使用
 

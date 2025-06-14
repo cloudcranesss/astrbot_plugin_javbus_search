@@ -10,5 +10,11 @@
     "type": "string",
     "hint": "选填项。",
     "default": ""
+  },
+  "javbus_image_proxy": {
+    "description": "JavBus 图片代理",
+    "type": "string",
+    "hint": "选填项。",
+    "default": ""
   }
 }
