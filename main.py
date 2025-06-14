@@ -6,16 +6,8 @@ from astrbot.core.message.message_event_result import MessageEventResult
 from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Context, Star, register
 from astrbot.api import logger, AstrBotConfig
-import os
-import sys
-
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.join(current_dir, "..")
-
-sys.path.append(parent_dir)
-
-from utils.send_forward_message import forward_message_by_qq
-from utils.translate import translate
+from .utils.send_forward_message import forward_message_by_qq
+from .utils.translate import translate
 import asyncio
 
 
