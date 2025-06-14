@@ -11,7 +11,7 @@ def translate(text, to="ja"):
     logger.info(f"开始调用谷歌翻译API，输入: {text}")
     start_time = time.time()
     global _google_trans_wait
-    url = f"https://translate.google.com/translate_a/single?client=gtx&dt=t&dj=1&ie=UTF-8&sl=auto&tl={to}&q={text}"
+    url = f"https://translate.google.com/translate_a/single?client=gtx&dt=t&dj=1&ie=UTF-8&hl=zh-CN&sl=auto&tl={to}&q={text}"
     r = requests.get(url)
     logger.info(f"谷歌翻译API响应: {r.status_code}")
     while r.status_code == 429:
