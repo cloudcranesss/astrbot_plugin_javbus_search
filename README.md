@@ -23,17 +23,15 @@
    ```bash
    pip install requests aiohttp
    ```
-3. 在AstrBot配置中添加以下配置项：
-   ```json
-   {
-     "javbus_api_url": "JavBus API地址",
-     "forward_url": "QQ合并消息转发服务地址",
-     "javbus_image_proxy": "JavBus图片代理地址",
-     "baidu_api_key": "百度翻译API密钥",
-     "baidu_secret_key": "百度翻译API密钥",
-     "qq_access_token": "QQ访问令牌"
-   }
-   ```
+3. 安装好后在后台按需添加
+```yaml
+"javbus_api_url": "JavBus API地址",
+"forward_url": "QQ合并消息转发服务地址",
+"javbus_image_proxy": "JavBus图片代理地址",
+"baidu_api_key": "百度翻译API密钥",
+"baidu_secret_key": "百度翻译API密钥",
+"qq_access_token": "QQ访问令牌"
+```
 
 ## 使用说明
 
