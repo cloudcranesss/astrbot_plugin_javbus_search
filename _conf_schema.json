@@ -17,8 +17,14 @@
     "hint": "选填项。",
     "default": ""
   },
-  "google_proxy": {
-    "description": "谷歌翻译代理",
+  "baidu_api_key": {
+    "description": "百度翻译产品id",
+    "type": "string",
+    "hint": "选填项。",
+    "default": ""
+  },
+  "baidu_secret_key": {
+    "description": "百度翻译密钥",
     "type": "string",
     "hint": "选填项。",
     "default": ""
