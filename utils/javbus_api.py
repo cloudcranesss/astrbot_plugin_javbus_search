@@ -166,7 +166,7 @@ class JavBusAPI:
         :return: 包含演员详细信息的字典
         """
         # 先根据演员名称获取影片列表
-        star_id = ""
+        star_ids = []
         movie_ids  = []
         movie_lists = self.search_movies(star_name)
         # 随机获取影片ID
@@ -175,24 +175,25 @@ class JavBusAPI:
 
         logger.info(f"随机获取的影片ID为: {movie_ids}")
 
+        if not movie_ids:
+            return None
         movie_id = random.choice(movie_ids)
 
         # 根据影片ID获取影片详情
         movie_details = self.get_movie_detail(movie_id)
         logger.info(f"影片标题: {movie_details['title']}")
         for movie_detail in movie_details["stars"]:
+            logger.info(f"演员: {movie_detail['name']}")
             # 如果star_name包含在movie_detail['name']中
             if star_name in movie_detail['name']:
-                star_id = movie_detail['id']
-                logger.info(f"演员ID: {star_id}")
+                star_ids.append(movie_detail['id'])
+                logger.info(f"演员ID: {star_ids}")
 
-        if star_id:
-            star_details = self.get_star_detail(star_id)
-            logger.info(f"演员姓名: {star_details['name']}, 年龄: {star_details['age']}")
-            return star_details
-        else:
-            return None
-
+        star_id = star_ids[0]
+        logger.info(f"演员ID: {star_id}")
+        star_details = self.get_star_detail(star_id)
+        logger.info(f"演员姓名: {star_details['name']}, 年龄: {star_details['age']}")
+        return star_details
     def close(self):
         """关闭会话"""
         self.session.close()
@@ -205,8 +206,8 @@ class JavBusAPI:
 
 
 # 使用示例
-# if __name__ == "__main__":
-#     with JavBusAPI("https://javbus-api-from-ovnrain-self-xi.vercel.app/") as api:
+if __name__ == "__main__":
+    with JavBusAPI("https://javbus-api-from-ovnrain-self-xi.vercel.app/") as api:
         # # 获取第一页有磁力链接的影片
         # movies = api.get_movies()
         # print(f"获取到 {len(movies['movies'])} 部影片")
@@ -229,5 +230,5 @@ class JavBusAPI:
         #     print(f"获取到 {len(magnets)} 个磁力链接")
 
         # # 获取演员详情
-        # details = api.get_star_by_name("三上")
-        # print(f"演员详情: {details}")
+        details = api.get_star_by_name("\u77f3\u5ddd\u6faa")
+        print(f"演员详情: {details}")

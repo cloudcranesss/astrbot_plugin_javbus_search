@@ -1,4 +1,5 @@
 import re
+import time
 from typing import AsyncGenerator, Any, List
 from astrbot.core.message.message_event_result import MessageEventResult
 from astrbot.api.event import filter, AstrMessageEvent
@@ -10,7 +11,7 @@ from utils.javbus_api import JavBusAPI
 import asyncio
 
 
-@register("JavBus Serach", "cloudcranesss", "一个基于JavBus API的搜索服务", "v1.0.0",
+@register("JavBus Serach", "cloudcranesss", "一个基于JavBus API的搜索服务", "v1.0.1",
           "https://github.com/cloudcraness/astrbot_plugin_javbus_serach")
 class JavBusSerach(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
@@ -20,7 +21,9 @@ class JavBusSerach(Star):
         self.forward_url = config.get("forward_url", "")
         self.javbus_image_proxy = config.get("javbus_image_proxy", "")
         logger.info(
-            f"初始化JavBus搜索插件，API地址: {self.javbus_api_url}, 转发地址配置: {'已配置' if self.forward_url else '未配置'}")
+            f"初始化JavBus搜索插件，API地址: {self.javbus_api_url}\n"
+            f"转发地址配置: {'已配置' if self.forward_url else '未配置'}\n"
+            f"JavBus 图片代理地址: {self.javbus_image_proxy}")
         self.api = JavBusAPI(self.javbus_api_url)
 
     async def send_reply(
@@ -56,7 +59,7 @@ class JavBusSerach(Star):
 
     # 修复：添加 context 参数
     @filter.regex(r"^搜关键词(.+)", flags=re.IGNORECASE, priority=1)
-    async def search_movies(self, event: AstrMessageEvent, context: Context) -> AsyncGenerator[MessageEventResult, Any]:
+    async def search_movies(self, event: AstrMessageEvent) -> AsyncGenerator[MessageEventResult, Any]:
         messages = event.get_messages()
         result1 = str(messages[0])
         result2 = re.findall(r"text='(.*?)'", result1)[0]
@@ -104,9 +107,9 @@ class JavBusSerach(Star):
             yield msg
 
 
-    # 修复：添加 context 参数
+
     @filter.regex(r"^搜演员(.+)")
-    async def search_star(self, event: AstrMessageEvent, context: Context) -> AsyncGenerator[MessageEventResult, Any]:
+    async def search_star(self, event: AstrMessageEvent) -> AsyncGenerator[MessageEventResult, Any]:
         messages = event.get_messages()
         result1 = str(messages[0])
         result2 = re.findall(r"text='(.*?)'", result1)[0]
@@ -120,8 +123,9 @@ class JavBusSerach(Star):
 
         try:
             logger.info(f"开始调用演员搜索API: {keyword}")
-            data = self.api.get_star_by_name(keyword)
-            logger.info(f"演员搜索完成，结果: {'找到' if data else '未找到'}")
+            time.sleep(1)
+            data = self.api.get_star_by_name(keyword.encode("utf-8"))
+            logger.info(f"演员搜索结果: {data}")
         except Exception as e:
             logger.error(f"演员搜索失败: {str(e)}", exc_info=True)
             yield event.plain_result("演员查询服务异常")
@@ -145,9 +149,9 @@ class JavBusSerach(Star):
         async for msg in self.send_reply(event, star_info):
             yield msg
 
-    # 修复：添加 context 参数
+
     @filter.regex(r"^搜磁力([a-zA-Z0-9-]+)")
-    async def search_magnet(self, event: AstrMessageEvent, context: Context) -> AsyncGenerator[MessageEventResult, Any]:
+    async def search_magnet(self, event: AstrMessageEvent) -> AsyncGenerator[MessageEventResult, Any]:
         messages = event.get_messages()
         result1 = str(messages[0])
         result2 = re.findall(r"text='(.*?)'", result1)[0]
@@ -210,6 +214,7 @@ class JavBusSerach(Star):
             f"时长：{videoLength}",
             f"演员：{stars_str}",
             f"导演：{director_str}"
+            f"[CQ:image,file={await self.proxy_image(detail['img'])}]"
         ]
 
         magnets = []
@@ -230,8 +235,20 @@ class JavBusSerach(Star):
         if magnets:
             info_lines.append("【磁力链接】")
             for idx, magnet in enumerate(magnets, 1):
-                magnet = magnet["link"]
-                info_lines.append(f"{idx}. {magnet}")
+                # 一次性提取所有值
+                title = magnet['title']
+                size = magnet['size']
+                share_date = magnet['shareDate']
+                is_hd = magnet['isHD']
+                link = magnet['link']
+                has_sub = magnet['hasSubtitle']
+
+                # 合并成单次格式化操作
+                info_lines.append(
+                    f"{idx}. {title} | {size} | {share_date}"
+                    f"{' 高清' if is_hd else ''} | {link} | "
+                    f"字幕：{'有' if has_sub else '无'}"
+                )
         else:
             info_lines.append("【未找到磁力链接】")
             logger.info("未找到磁力链接")
