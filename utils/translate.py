@@ -6,6 +6,7 @@ import time
 from typing import Dict, Union, List
 import requests
 from astrbot.core import logger, AstrBotConfig
+from astrbot.api.star import Context, Star
 
 def translate_by_google(text, to="ja"):
     """使用Google翻译文本（默认翻译为简体中文）"""
@@ -36,7 +37,7 @@ def translate_by_baidu(text: str) -> dict[str, str | list[dict[str, str]]]:
     baidu = BaiduTranslator()
     return baidu.translate(text, 'auto', 'jq')
 
-class BaiduTranslator:
+class BaiduTranslator(Star):
     """
     百度翻译API封装类
 
@@ -100,14 +101,17 @@ class BaiduTranslator:
         90107: '认证未通过或未生效'
     }
 
-    def __init__(self):
+    def __init__(self, config: AstrBotConfig, context: Context):
         """初始化翻译器"""
-        self.config = AstrBotConfig()
+        super().__init__(context)
+        self.config = config
         self.api_url = 'https://fanyi-api.baidu.com/api/trans/vip/translate'
 
         # 获取API凭证
         self.appid = self.config.get('baidu_api_key', '')
         self.secret_key = self.config.get('baidu_secret_key', '')
+
+        logger.info(f"appid: {self.appid} secret_key: {self.secret_key}")
 
         if not all([self.appid, self.secret_key]):
             logger.error("百度翻译API配置不完整，请检查config.ini文件")
@@ -206,10 +210,7 @@ class BaiduTranslator:
         return self.LANGUAGE_MAP.copy()
 
 def translate(text: str, target_language: str = "ja"):
-    if AstrBotConfig.get_config("baidu_appid") and AstrBotConfig.get_config("baidu_secret_key"):
         return translate_by_baidu(text)
-    else:
-        return translate_by_google(text)
 
 if  __name__ == "__main__":
     translate_by_baidu("hello")
