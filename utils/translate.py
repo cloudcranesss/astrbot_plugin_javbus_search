@@ -3,7 +3,7 @@ import hashlib
 import json
 import random
 import time
-from typing import Dict, Union, List
+from typing import Dict, Union, List, Any
 import requests
 from astrbot.core import logger
 def translate_by_google(text, to="ja"):
@@ -127,9 +127,10 @@ class BaiduTranslator():
             self,
             query: str,
             from_lang: str = 'auto',
-            to_lang: str = 'zh',
+            to_lang: str = 'jp',
              ** kwargs
-    ) -> Dict[str, Union[str, List[Dict[str, str]]]]:
+    ) -> None | dict[str, str] | dict[str, str] | dict[str, str] | dict[str, str] | dict[str, str | Any] | dict[
+        str, str] | dict[str, str] | Any:
         """
         执行翻译操作
 
