@@ -201,8 +201,8 @@ class BaiduTranslator():
                     logger.error("谷歌翻译响应解析失败")
                     raise
 
-    async def translate(self, text: str, target_language: str = "jp") -> str | None | LiteralString:
+    async def translate(self, text: str) -> str | None | LiteralString:
         if self.appid and self.secret_key:
-            return await self.translate_by_baidu(text, target_language)
+            return await self.translate_by_baidu(text)
         else:
             return await self.translate_by_google(text)
