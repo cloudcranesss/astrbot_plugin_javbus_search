@@ -6,8 +6,10 @@ from astrbot.core.message.message_event_result import MessageEventResult
 from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Context, Star, register
 from astrbot.api import logger, AstrBotConfig
+
 from .utils.send_forward_message import forward_message_by_qq
 from .utils.translate import BaiduTranslator
+from .utils.froward_message import ForwardMessage
 
 
 @register("JavBus Serach", "cloudcranesss", "一个基于JavBus API的搜索服务", "v1.0.1",
@@ -28,6 +30,7 @@ class JavBusSerach(Star):
             f"JavBus 图片代理地址: {self.javbus_image_proxy}")
         self.api = JavBusAPI(self.javbus_api_url)
         self.trans = BaiduTranslator(self.baidu_api_key, self.baidu_secret_key)
+
 
     async def send_reply(
             self,
@@ -87,6 +90,7 @@ class JavBusSerach(Star):
             return
 
         movies_info = []
+        screenshots = []
         for idx, data in enumerate(datas["movies"]):
             logger.info(f"处理第 {idx + 1}/{len(datas['movies'])} 个结果: {data.get('id')}")
             title = data['title'][:20] + "..." if len(data['title']) > 20 else data['title']
@@ -95,13 +99,13 @@ class JavBusSerach(Star):
                 f"标题: {title}\n"
                 f"日期: {data['date']}\n"
                 f"标签: {', '.join(data['tags'])}\n"
-                f"[CQ:image,file={await self.proxy_image(data['img'])}]\n"
             )
+            screenshots.append(await self.proxy_image(data['img']))
 
         movies_info.append(f"找到 {len(datas['movies'])} 个结果")
         logger.info(f"准备返回 {len(movies_info)} 条消息")
 
-        async for msg in self.send_reply(event, movies_info):
+        for msg in ForwardMessage(event, movies_info, screenshots).send_by_qq():
             yield msg
 
     @filter.regex(r"^搜演员(.+)")
@@ -132,17 +136,20 @@ class JavBusSerach(Star):
             yield event.plain_result("未找到该演员信息")
             return
 
+        star_info = []
+        screenshots = []
+
         star_info = [
             f"姓名: {data['name']}\n"
             f"生日: {data['birthday']}\n"
             f"年龄: {data['age']}\n"
             f"身高: {data['height']}\n"
             f"三维: {data['bust']} - {data['waistline']} - {data['hipline']}\n"
-            f"[CQ:image,file={await self.proxy_image(data['avatar'])}]"
         ]
+        screenshots.append(await self.proxy_image(data['avatar']))
         logger.info(f"演员信息已构建: {data['name']}")
 
-        async for msg in self.send_reply(event, star_info):
+        for msg in ForwardMessage(event, star_info, screenshots).send_by_qq():
             yield msg
 
     @filter.regex(r"^搜磁力([a-zA-Z0-9-]+)")
@@ -198,16 +205,18 @@ class JavBusSerach(Star):
             director_str = str(detail["director"])
         logger.info(f"导演信息: {director_str}")
 
+        screenshots = []
+
         info_lines = [
-            f"【影片详情】",
-            f"番号：{detail.get('id', 'N/A')}",
-            f"标题：{detail.get('title', 'N/A')}",
-            f"日期：{detail.get('date', 'N/A')}",
-            f"时长：{videoLength}",
-            f"演员：{stars_str}",
+            f"【影片详情】\n"
+            f"番号：{detail.get('id', 'N/A')}\n"
+            f"标题：{detail.get('title', 'N/A')}\n"
+            f"日期：{detail.get('date', 'N/A')}\n"
+            f"时长：{videoLength}\n"
+            f"演员：{stars_str}\n"
             f"导演：{director_str}"
-            f"[CQ:image,file={await self.proxy_image(detail['img'])}]"
         ]
+        screenshots.append(await self.proxy_image(detail['img']))
 
         magnets = []
         if 'gid' in detail and 'uc' in detail:
@@ -247,7 +256,7 @@ class JavBusSerach(Star):
             logger.info("未找到磁力链接")
 
         logger.info(f"准备返回磁力搜索结果，信息行数: {len(info_lines)}")
-        async for msg in self.send_reply(event, ["\n".join(info_lines)]):
+        for msg in ForwardMessage(event, info_lines, screenshots).send_by_qq():
             yield msg
 
 
