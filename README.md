@@ -7,7 +7,7 @@
 - 🔍 **影片搜索**：通过关键词（番号）搜索影片信息
 - 👤 **演员搜索**：搜索演员详细信息及作品
 - ⛓️ **磁力链接获取**：获取影片的磁力下载链接
-- 📨 **智能消息转发**：支持合并转发消息展示搜索结果
+- 📨 **智能消息转发**：使用AstrBot自带的合并转发功能展示搜索结果
 - 🌐 **多语言支持**：内置百度翻译API处理多语言搜索
 - 🖼️ **图片代理**：支持自定义图片代理服务
 
@@ -26,11 +26,9 @@
 3. 安装好后在后台按需添加
 ```yaml
 "javbus_api_url": "JavBus API地址",
-"forward_url": "QQ合并消息转发服务地址",
 "javbus_image_proxy": "JavBus图片代理地址",
 "baidu_api_key": "百度翻译API密钥",
-"baidu_secret_key": "百度翻译API密钥",
-"qq_access_token": "QQ访问令牌"
+"baidu_secret_key": "百度翻译API密钥"
 ```
 
 ## 使用说明
@@ -86,7 +84,7 @@
 ### 核心组件
 - **JavBusAPI**：封装了与JavBus API的交互逻辑
 - **BaiduTranslator**：处理多语言翻译需求
-- **消息转发服务**：支持QQ合并消息转发
+- **AstrBot合并转发**：使用AstrBot自带的合并转发功能展示搜索结果
 - **图片代理系统**：解决图片访问限制问题
 
 ### 翻译服务
@@ -108,7 +106,7 @@
     "JavBus Serach", 
     "cloudcranesss", 
     "一个基于JavBus API的搜索服务", 
-    "v1.0.1", 
+    "v1.0.2", 
     "https://github.com/cloudcranesss/astrbot_plugin_javbus_search"
 )
 ```

@@ -1,38 +1,26 @@
 {
   "javbus_api_url": {
-    "description": "JavVus API",
+    "description": "JavBus API",
     "type": "string",
     "hint": "必填项。搭建参考：https://github.com/ovnrain/javbus-api",
-    "default": ""
-  },
-  "forward_url": {
-    "description": "合并消息转发服务",
-    "type": "string",
-    "hint": "选填项。",
-    "default": ""
-  },
-  "qq_access_token": {
-    "description": "QQ机器人登录凭证",
-    "type": "string",
-    "hint": "选填项。",
     "default": ""
   },
   "javbus_image_proxy": {
     "description": "JavBus 图片代理",
     "type": "string",
-    "hint": "选填项。",
+    "hint": "选填项。用于解决图片访问限制问题",
     "default": ""
   },
   "baidu_api_key": {
     "description": "百度翻译产品id",
     "type": "string",
-    "hint": "选填项。",
+    "hint": "选填项。用于多语言翻译",
     "default": ""
   },
   "baidu_secret_key": {
     "description": "百度翻译密钥",
     "type": "string",
-    "hint": "选填项。",
+    "hint": "选填项。用于多语言翻译",
     "default": ""
   }
 }

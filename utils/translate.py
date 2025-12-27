@@ -79,6 +79,9 @@ class BaiduTranslator():
         # 获取API凭证
         self.appid = appid
         self.secret_key = secret_key
+        
+        # 用于Google翻译的等待时间变量
+        self._google_trans_wait = 60
 
         logger.info(f"appid: {self.appid} secret_key: {self.secret_key}")
 
@@ -160,11 +163,10 @@ class BaiduTranslator():
         """获取支持的语言列表"""
         return self.LANGUAGE_MAP.copy()
 
-    async def translate_by_google(text, to="ja"):
+    async def translate_by_google(self, text, to="ja"):
         """使用Google翻译文本（默认翻译为简体中文）异步版本"""
         logger.info(f"开始调用谷歌翻译API，输入: {text}")
         start_time = time.time()
-        global _google_trans_wait
 
         # 构建请求URL
         url = f"https://translate.google.com/translate_a/single?client=gtx&dt=t&dj=1&ie=UTF-8&hl=zh-CN&sl=auto&tl={to}&q={text}"
@@ -177,9 +179,9 @@ class BaiduTranslator():
                     async with session.get(url) as response:
                         # 处理429错误（请求过多）
                         if response.status == 429:
-                            logger.warning(f"HTTP 429: Google翻译请求超限，将等待{_google_trans_wait}秒后重试")
-                            await asyncio.sleep(_google_trans_wait)
-                            _google_trans_wait += random.randint(60, 90)
+                            logger.warning(f"HTTP 429: Google翻译请求超限，将等待{self._google_trans_wait}秒后重试")
+                            await asyncio.sleep(self._google_trans_wait)
+                            self._google_trans_wait += random.randint(60, 90)
                             continue
 
                         # 检查其他错误状态
@@ -201,8 +203,23 @@ class BaiduTranslator():
                     logger.error("谷歌翻译响应解析失败")
                     raise
 
-    async def translate(self, text: str) -> str | None | LiteralString:
+    async def translate(self, text: str) -> Optional[str]:
+        """统一翻译接口
+        
+        Args:
+            text: 要翻译的文本
+            
+        Returns:
+            翻译后的文本，失败则返回None
+        """
+        logger.info(f"开始翻译文本，内容: {text[:50]}...")
+        
         if self.appid and self.secret_key:
-            return await self.translate_by_baidu(text)
+            logger.info("使用百度翻译API")
+            result = await self.translate_by_baidu(text)
         else:
-            return await self.translate_by_google(text)
+            logger.warning("百度翻译API配置不完整，将使用Google翻译")
+            result = await self.translate_by_google(text)
+        
+        logger.info(f"翻译完成，结果: {result[:50]}...")
+        return result
